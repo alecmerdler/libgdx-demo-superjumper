@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Launch DesktopLauncher",
+      "request": "launch",
+      "mainClass": "com.badlogicgames.superjumper.desktop.DesktopLauncher",
+      "projectName": "Super Jumper-desktop"
+    }
+  ]
+}
