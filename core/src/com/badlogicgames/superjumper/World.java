@@ -19,7 +19,6 @@ package com.badlogicgames.superjumper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.function.Consumer;
 
 import com.badlogic.gdx.math.Vector2;
 

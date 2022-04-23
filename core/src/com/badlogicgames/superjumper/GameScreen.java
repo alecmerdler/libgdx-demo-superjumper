@@ -19,12 +19,16 @@ package com.badlogicgames.superjumper;
 import com.badlogic.gdx.Application.ApplicationType;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
+import com.badlogic.gdx.Net.HttpMethods;
+import com.badlogic.gdx.Net.HttpRequest;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.net.HttpRequestBuilder;
+import com.badlogic.gdx.utils.Json;
 import com.badlogicgames.superjumper.World.WorldListener;
 
 public class GameScreen extends ScreenAdapter {
@@ -50,7 +54,7 @@ public class GameScreen extends ScreenAdapter {
 
 	GlyphLayout glyphLayout = new GlyphLayout();
 
-	public GameScreen (SuperJumper game) {
+	public GameScreen(SuperJumper game) {
 		this.game = game;
 
 		state = GAME_READY;
@@ -59,22 +63,22 @@ public class GameScreen extends ScreenAdapter {
 		touchPoint = new Vector3();
 		worldListener = new WorldListener() {
 			@Override
-			public void jump () {
+			public void jump() {
 				Assets.playSound(Assets.jumpSound);
 			}
 
 			@Override
-			public void highJump () {
+			public void highJump() {
 				Assets.playSound(Assets.highJumpSound);
 			}
 
 			@Override
-			public void hit () {
+			public void hit() {
 				Assets.playSound(Assets.hitSound);
 			}
 
 			@Override
-			public void coin () {
+			public void coin() {
 				Assets.playSound(Assets.coinSound);
 			}
 		};
@@ -87,35 +91,58 @@ public class GameScreen extends ScreenAdapter {
 		scoreString = "SCORE: 0";
 	}
 
-	public void update (float deltaTime) {
-		if (deltaTime > 0.1f) deltaTime = 0.1f;
+	public void update(float deltaTime) {
+		if (deltaTime > 0.1f)
+			deltaTime = 0.1f;
 
 		switch (state) {
-		case GAME_READY:
-			updateReady();
-			break;
-		case GAME_RUNNING:
-			updateRunning(deltaTime);
-			break;
-		case GAME_PAUSED:
-			updatePaused();
-			break;
-		case GAME_LEVEL_END:
-			updateLevelEnd();
-			break;
-		case GAME_OVER:
-			updateGameOver();
-			break;
+			case GAME_READY:
+				updateReady();
+				break;
+			case GAME_RUNNING:
+				updateRunning(deltaTime);
+				break;
+			case GAME_PAUSED:
+				updatePaused();
+				break;
+			case GAME_LEVEL_END:
+				updateLevelEnd();
+				break;
+			case GAME_OVER:
+				// TODO(alecmerdler): Send data to server about score...
+				class Score {
+					public int score;
+					public String name;
+
+					public Score(int score, String name) {
+						this.score = score;
+						this.name = name;
+					}
+				}
+
+				Score score = new Score(world.score, "alecmerdler");
+
+				HttpRequest request = new HttpRequestBuilder().newRequest()
+						.method(HttpMethods.POST)
+						// FIXME(alecmerdler): Make sure this is pointing to the state server when
+						// running in the cloud...
+						.url("http://localhost:7501/api/v1/state")
+						.content(new Json().toJson(score))
+						.build();
+				Gdx.net.sendHttpRequest(request, null);
+
+				updateGameOver();
+				break;
 		}
 	}
 
-	private void updateReady () {
+	private void updateReady() {
 		if (Gdx.input.justTouched()) {
 			state = GAME_RUNNING;
 		}
 	}
 
-	private void updateRunning (float deltaTime) {
+	private void updateRunning(float deltaTime) {
 		if (Gdx.input.justTouched()) {
 			guiCam.unproject(touchPoint.set(Gdx.input.getX(), Gdx.input.getY(), 0));
 
@@ -125,16 +152,19 @@ public class GameScreen extends ScreenAdapter {
 				return;
 			}
 		}
-		
+
 		ApplicationType appType = Gdx.app.getType();
-		
-		// should work also with Gdx.input.isPeripheralAvailable(Peripheral.Accelerometer)
+
+		// should work also with
+		// Gdx.input.isPeripheralAvailable(Peripheral.Accelerometer)
 		if (appType == ApplicationType.Android || appType == ApplicationType.iOS) {
 			world.update(deltaTime, Gdx.input.getAccelerometerX());
 		} else {
 			float accel = 0;
-			if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT)) accel = 5f;
-			if (Gdx.input.isKeyPressed(Keys.DPAD_RIGHT)) accel = -5f;
+			if (Gdx.input.isKeyPressed(Keys.DPAD_LEFT))
+				accel = 5f;
+			if (Gdx.input.isKeyPressed(Keys.DPAD_RIGHT))
+				accel = -5f;
 			world.update(deltaTime, accel);
 		}
 		if (world.score != lastScore) {
@@ -155,7 +185,7 @@ public class GameScreen extends ScreenAdapter {
 		}
 	}
 
-	private void updatePaused () {
+	private void updatePaused() {
 		if (Gdx.input.justTouched()) {
 			guiCam.unproject(touchPoint.set(Gdx.input.getX(), Gdx.input.getY(), 0));
 
@@ -173,7 +203,7 @@ public class GameScreen extends ScreenAdapter {
 		}
 	}
 
-	private void updateLevelEnd () {
+	private void updateLevelEnd() {
 		if (Gdx.input.justTouched()) {
 			world = new World(worldListener);
 			renderer = new WorldRenderer(game.batcher, world);
@@ -182,13 +212,13 @@ public class GameScreen extends ScreenAdapter {
 		}
 	}
 
-	private void updateGameOver () {
+	private void updateGameOver() {
 		if (Gdx.input.justTouched()) {
 			game.setScreen(new MainMenuScreen(game));
 		}
 	}
 
-	public void draw () {
+	public void draw() {
 		GL20 gl = Gdx.gl;
 		gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
@@ -199,60 +229,61 @@ public class GameScreen extends ScreenAdapter {
 		game.batcher.enableBlending();
 		game.batcher.begin();
 		switch (state) {
-		case GAME_READY:
-			presentReady();
-			break;
-		case GAME_RUNNING:
-			presentRunning();
-			break;
-		case GAME_PAUSED:
-			presentPaused();
-			break;
-		case GAME_LEVEL_END:
-			presentLevelEnd();
-			break;
-		case GAME_OVER:
-			presentGameOver();
-			break;
+			case GAME_READY:
+				presentReady();
+				break;
+			case GAME_RUNNING:
+				presentRunning();
+				break;
+			case GAME_PAUSED:
+				presentPaused();
+				break;
+			case GAME_LEVEL_END:
+				presentLevelEnd();
+				break;
+			case GAME_OVER:
+				presentGameOver();
+				break;
 		}
 		game.batcher.end();
 	}
 
-	private void presentReady () {
+	private void presentReady() {
 		game.batcher.draw(Assets.ready, 160 - 192 / 2, 240 - 32 / 2, 192, 32);
 	}
 
-	private void presentRunning () {
+	private void presentRunning() {
 		game.batcher.draw(Assets.pause, 320 - 64, 480 - 64, 64, 64);
 		Assets.font.draw(game.batcher, scoreString, 16, 480 - 20);
 	}
 
-	private void presentPaused () {
+	private void presentPaused() {
 		game.batcher.draw(Assets.pauseMenu, 160 - 192 / 2, 240 - 96 / 2, 192, 96);
 		Assets.font.draw(game.batcher, scoreString, 16, 480 - 20);
 	}
 
-	private void presentLevelEnd () {
+	private void presentLevelEnd() {
 		glyphLayout.setText(Assets.font, "the princess is ...");
 		Assets.font.draw(game.batcher, glyphLayout, 160 - glyphLayout.width / 2, 480 - 40);
 		glyphLayout.setText(Assets.font, "in another castle!");
 		Assets.font.draw(game.batcher, glyphLayout, 160 - glyphLayout.width / 2, 40);
 	}
 
-	private void presentGameOver () {
+	private void presentGameOver() {
 		game.batcher.draw(Assets.gameOver, 160 - 160 / 2, 240 - 96 / 2, 160, 96);
 		glyphLayout.setText(Assets.font, scoreString);
 		Assets.font.draw(game.batcher, scoreString, 160 - glyphLayout.width / 2, 480 - 20);
 	}
 
 	@Override
-	public void render (float delta) {
+	public void render(float delta) {
 		update(delta);
 		draw();
 	}
 
 	@Override
-	public void pause () {
-		if (state == GAME_RUNNING) state = GAME_PAUSED;
+	public void pause() {
+		if (state == GAME_RUNNING)
+			state = GAME_PAUSED;
 	}
 }
